@@ -1,0 +1,38 @@
+---
+title: "Protocol layers"
+description: "L1 Terminal, L2 Collection, L3 Metadata"
+icon: "layer-group"
+---
+
+The phux wire protocol is layered (ADR-0015). Conformance is **per-tier** — a consumer only speaks the layers it cares about.
+
+## L1 — Terminal
+
+The substrate. Every consumer speaks L1. Terminals are first-class primitives: spawn, observe, drive input, receive output, snapshot state.
+
+- Server → client _content_ is **VT bytes**, forwarded from the PTY after per-client capability rewriting.
+- Client → server _input_ is **structured key, mouse, focus, and paste events**, built from libghostty's own atoms (ADR-0008).
+- An agent SDK can speak L1 alone and never hears "session" or "window."
+
+## L2 — Collection
+
+An optional lifecycle bundle. Collections group terminals for spawn/teardown semantics. The TUI's tmux vocabulary (sessions, windows) lives here.
+
+## L3 — Metadata
+
+An opaque key/value store on top. Consumers — the TUI, a future GUI, an SDK — keep their own state here. The wire is unaware of meaning; consumers attach semantics.
+
+## Federation
+
+Identity is federation-ready from day one (ADR-0007). `TerminalId` is a tagged union:
+
+```text
+TerminalId = LOCAL
+           | SATELLITE { host, id }
+```
+
+v0.1 servers construct `LOCAL` only; v0.2\+ hubs route to satellites. The wire bytes do not change.
+
+## Spec
+
+The normative wire protocol lives in [`SPEC.md`](https://github.com/phall1/phux/blob/main/SPEC.md), with frame format in Appendix A.

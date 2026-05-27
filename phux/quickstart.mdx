@@ -1,0 +1,35 @@
+---
+title: "Quickstart"
+description: "Build and run phux locally"
+icon: "rocket"
+---
+
+phux is built with Rust and uses a Nix dev shell for reproducible toolchains.
+
+## Enter the dev shell
+
+```bash
+nix develop          # or `direnv allow` once, then auto
+```
+
+The shell pins Rust 1.90, includes `zig_0_15` for libghostty-vt builds, plus `nextest`, `deny`, `watch`, `insta`, `mutants`, and `just`.
+
+## Build and check
+
+```bash
+just check           # type-check across the workspace
+just ci              # everything CI must pass
+```
+
+## Run
+
+Today's binary ships `attach` and `server` only, with tmux-style auto-spawn. The server listens on a UDS at `$XDG_RUNTIME_DIR/phux/phux.sock`.
+
+```bash
+phux server          # start the daemon
+phux attach          # attach the TUI client
+```
+
+## Philosophy
+
+phux aims to be [**smol**](https://smol.tauri.app/): a well-defined problem, a single maintainer, programs that compose, programs that can be finished. See `CONTRIBUTING.md` for the things we say no to.

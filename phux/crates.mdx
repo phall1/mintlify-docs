@@ -1,0 +1,29 @@
+---
+title: "Crate layout"
+description: "The crates that make up phux"
+icon: "cubes"
+---
+
+phux is a Cargo workspace. Only `phux-protocol` is intended for publication; the rest are `publish = false`.
+
+| Crate | Purpose |
+| --- | --- |
+| `phux` | Single binary; `attach` and `server` subcommands today |
+| `phux-protocol` | Wire types, codec, version negotiation; publish-ready |
+| `phux-core` | Domain types: in-process terminal / collection registries |
+| `phux-server` | Daemon: per-terminal actor, PTY supervision, output fanout |
+| `phux-client` | TUI client: local libghostty Terminal \+ `RenderState` redraw |
+| `phux-config` | TOML config schema \+ status widget contract |
+
+## In-tree details
+
+- **`phux-protocol`** — length-prefixed TLV frame codec (SPEC Appendix A); `HELLO` / `ATTACH` / `DETACH` / `PANE_OUTPUT` / `PANE_SNAPSHOT` / `INPUT_*` / `BELL` / `ERROR` / `PING` subset of the message catalog; structured input types re-export libghostty's atoms directly (ADR-0008).
+- **`phux-core`** — slotmap registries for in-process domain objects mapping to L1 terminals (currently named `Pane`); the TUI's binary-split layout convention (demotes to L3 metadata under ADR-0015).
+- **`phux-server`** — tokio current-thread runtime; UDS listener at `$XDG_RUNTIME_DIR/phux/phux.sock`; per-terminal actor (ADR-0014) that owns a `libghostty_vt::Terminal` and a real PTY child; per-terminal input encoders (ADR-0006); broadcast `PANE_OUTPUT` fanout; `PANE_SNAPSHOT` synthesis from `RenderState`; per-client capability rewriter for outbound bytes.
+- **`phux-client`** — UDS attach loop; raw-mode/altscreen guard; stdin keyboard parser; a `libghostty_vt::Terminal` per attached terminal driven by `RenderState` (ADR-0013). The per-row dirty path is currently bypassed in favour of a full-screen redraw per frame, pending the libghostty FFI investigation tracked as `phux-l0t`.
+- **`phux-config`** — TOML schema \+ loader with `line:col` errors; keybind parser/trie resolver; status `Widget` trait \+ time / session-name widgets.
+
+## On the roadmap
+
+- **`phux-client-sdk`** — L1-only typed Rust handle for agents. Spawn / observe / drive terminals over the wire, no TUI vocabulary.
+- **`phux-client-gui`** — native GUI consumer over libghostty's surface API. Renders terminals its own way; shares no chrome with the TUI.

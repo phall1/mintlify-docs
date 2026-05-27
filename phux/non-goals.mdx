@@ -1,0 +1,29 @@
+---
+title: "Non-goals"
+description: "What phux deliberately does not do"
+icon: "ban"
+---
+
+Documented in `CONTRIBUTING.md` and the relevant ADRs.
+
+<CardGroup cols={2}>
+  <Card title="No embedded scripting language" icon="code">
+    Commands are typed wire messages.
+  </Card>
+
+  <Card title="No plugin host" icon="plug">
+    Extensions are consumer-side; agents cover the programmatic case structurally.
+  </Card>
+
+  <Card title="No copy-mode reinvention" icon="copy">
+    Modern terminals do this well; we surface libghostty's selection APIs.
+  </Card>
+
+  <Card title="No homegrown crypto" icon="lock">
+    Unix socket perms \+ SSH (and future QUIC TLS) at the transport.
+  </Card>
+
+  <Card title="No format-template DSL" icon="file-code">
+    Status widgets are typed; arbitrary logic lives in widget binaries the TUI runs.
+  </Card>
+</CardGroup>

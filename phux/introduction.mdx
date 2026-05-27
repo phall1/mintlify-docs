@@ -1,0 +1,26 @@
+---
+title: "Introduction"
+description: "A libghostty-backed terminal control plane"
+icon: "star"
+---
+
+**phux** is a libghostty-backed terminal control plane. A long-lived server hosts terminals — spawned, observed, controlled, persisted, addressable across hosts — and a tmux-shaped TUI rides on top as one consumer among several.
+
+> "Need to replace tmux with a libghostty-based multiplexer so it can understand KIP." — Mitchell Hashimoto
+
+## What makes it different
+
+- **libghostty end-to-end.** Both server and client run `libghostty_vt::Terminal`. Nothing in the middle re-parses VT — modern terminal protocols (Kitty keyboard, true colour, OSC 8, OSC 133, images) pass through.
+- **Asymmetric wire.** Server → client _content_ is **VT bytes** (per-client capability-rewritten); client → server _input_ is **structured key, mouse, focus, and paste events** built from libghostty's own atoms.
+- **Layered protocol.** **L1 Terminal** is the substrate every consumer speaks; **L2 Collection** is an optional lifecycle bundle; **L3 Metadata** is an opaque KV store. Conformance is per-tier — an agent SDK speaks L1 alone and never hears "session" or "window."
+- **Federation-ready identity.** `TerminalId` is a `LOCAL` / `SATELLITE { host, id }` tagged union from day one. The wire bytes don't change when hubs route to satellites.
+
+## Status
+
+**Pre-alpha. Spec first, code second.** End-to-end attach works for a single pre-seeded session today; most of the substrate's lifecycle, metadata, and federation surface is not yet wired.
+
+See the [VISION](https://github.com/phall1/phux/blob/main/VISION.md) for the long arc.
+
+## License
+
+Dual-licensed under MIT or Apache-2.0.

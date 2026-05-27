@@ -99,12 +99,19 @@
           {
             "group": "Get started",
             "icon": "rocket",
-            "pages": []
+            "pages": [
+              "phux/introduction.mdx",
+              "phux/quickstart.mdx"
+            ]
           },
           {
             "group": "Architecture",
             "icon": "sitemap",
-            "pages": []
+            "pages": [
+              "phux/protocol.mdx",
+              "phux/crates.mdx",
+              "phux/non-goals.mdx"
+            ]
           }
         ]
       }

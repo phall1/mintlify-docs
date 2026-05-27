@@ -1,0 +1,39 @@
+---
+title: "Overview"
+description: "How cyrs is layered, in plain words"
+icon: "layer-group"
+---
+
+cyrs is a stack of layers. Each layer is a stable consumable surface — you pick the one that matches what you're building.
+
+## The layers
+
+<Steps>
+  <Step title="Lexer">
+    Source text → tokens. Useful for syntax highlighters and tree-sitter-style tooling.
+  </Step>
+  <Step title="Parser">
+    Tokens → concrete syntax tree (CST) / abstract syntax tree (AST). Useful for linters, formatters, and refactor tools.
+  </Step>
+  <Step title="Name & type resolution">
+    AST → typed IR. Variables are bound, types are inferred, errors are reported with spans.
+  </Step>
+  <Step title="Logical plan">
+    Typed IR → logical plan. The closest layer to what a query engine would consume.
+  </Step>
+</Steps>
+
+## Which layer should I consume?
+
+See the [integration depth decision table](https://github.com/phall1/cyrs/blob/main/docs/integration-depth.md) in the repo. Short version:
+
+- **Editor tooling** → lexer \+ parser.
+- **Linters and formatters** → parser (CST).
+- **Static analysis / IDE diagnostics** → typed IR.
+- **Query engines / optimizers** → logical plan.
+
+## Further reading
+
+- [Per-layer concept guides](https://github.com/phall1/cyrs/tree/main/docs/concepts)
+- [Normative architecture specs](https://github.com/phall1/cyrs/tree/main/docs/specs)
+- [Stability contract](https://github.com/phall1/cyrs/blob/main/docs/stability.md)

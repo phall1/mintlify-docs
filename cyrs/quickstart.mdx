@@ -1,0 +1,43 @@
+---
+title: "Quickstart"
+description: "Parse, check, and format your first Cypher query"
+icon: "bolt"
+---
+
+Once `cyrs-cli` is installed, the `cypher` command is on your path.
+
+## Parse
+
+```bash
+cypher parse demo/samples/good.cyp
+```
+
+Returns the AST and surfaces parse errors with source spans.
+
+## Type-check
+
+```bash
+cypher check demo/samples/unknown_var.cyp
+```
+
+Reports undefined variables, type mismatches, and other semantic issues.
+
+## Format
+
+```bash
+cypher fmt demo/samples/needs_fmt.cyp
+```
+
+Rewrites a query in canonical form.
+
+## As a library
+
+```rust
+use cyrs_lang::parse;
+
+fn main() {
+    let src = "MATCH (n:Person) RETURN n.name";
+    let ast = parse(src).expect("valid query");
+    println!("{ast:#?}");
+}
+```

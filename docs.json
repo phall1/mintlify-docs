@@ -70,6 +70,43 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "cyrs",
+        "groups": [
+          {
+            "group": "Get started",
+            "icon": "rocket",
+            "pages": [
+              "cyrs/introduction.mdx",
+              "cyrs/installation.mdx",
+              "cyrs/quickstart.mdx"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "icon": "book",
+            "pages": [
+              "cyrs/overview.mdx",
+              "cyrs/coverage.mdx"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "phux",
+        "groups": [
+          {
+            "group": "Get started",
+            "icon": "rocket",
+            "pages": []
+          },
+          {
+            "group": "Architecture",
+            "icon": "sitemap",
+            "pages": []
+          }
+        ]
       }
     ],
     "global": {

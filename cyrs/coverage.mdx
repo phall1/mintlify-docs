@@ -1,0 +1,24 @@
+---
+title: "Coverage"
+description: "Parser acceptance against openCypher and GQL"
+icon: "chart-simple"
+---
+
+cyrs tracks two specifications.
+
+## openCypher v9 TCK
+
+**3,632 / 3,897 scenarios accepted (93.2%).**
+
+The Technology Compatibility Kit is openCypher's reference scenario set. Acceptance means the parser produces a valid AST for the query — runtime semantics are out of scope for cyrs.
+
+## GQL (ISO/IEC 39075:2024)
+
+- **Bootstrap scenarios:** 140 / 140 (100%)
+- **Grammar productions reached:** 153 / 574 (26.7%)
+
+GQL is the newer ISO standard. cyrs aims to grow coverage of grammar productions release over release.
+
+## What "accepted" means
+
+All numbers measure **parser acceptance**. They do not assert runtime conformance — cyrs has no runtime. See [`docs/coverage.md`](https://github.com/phall1/cyrs/blob/main/docs/coverage.md) for the full breakdown.

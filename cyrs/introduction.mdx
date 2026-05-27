@@ -1,0 +1,33 @@
+---
+title: "Introduction"
+description: "A compiler front-end for Cypher and GQL, written in Rust"
+icon: "star"
+---
+
+**cyrs** is a compiler front-end for [Cypher](https://opencypher.org/) and [GQL](https://www.gqlstandards.org/). It lexes, parses, type-checks, lints, formats, and lowers queries to a logical-plan IR.
+
+cyrs does **not** execute queries — that is the database's job.
+
+## Why cyrs
+
+- **Standards-aware.** Tracks openCypher v9 and ISO/IEC 39075:2024 (GQL).
+- **Library-first.** Use it as a crate ([`cyrs-lang`](https://crates.io/crates/cyrs-lang)), a CLI (`cyrs-cli`), or a language server (`cyrs-lsp`).
+- **Layered.** Consume only the layer you need — tokens, AST, typed IR, or logical plan.
+
+## Coverage
+
+| Spec | Scenarios accepted |
+| --- | --- |
+| openCypher v9 TCK | 3,632 / 3,897 (93.2%) |
+| GQL ISO/IEC 39075:2024 bootstrap | 140 / 140 (100%) |
+| GQL grammar productions reached | 153 / 574 (26.7%) |
+
+Numbers measure parser acceptance, not runtime conformance.
+
+## Status
+
+`0.1.0` on crates.io. Pre-1.0 — the API is depend-able, with minor breakage possible on the path to 1.0.
+
+## License
+
+Dual-licensed under Apache-2.0 OR MIT.

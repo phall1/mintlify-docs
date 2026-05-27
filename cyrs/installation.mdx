@@ -1,0 +1,32 @@
+---
+title: "Installation"
+description: "Install the cyrs CLI and library"
+icon: "download"
+---
+
+## CLI
+
+Install the `cypher` command from [crates.io](https://crates.io/crates/cyrs-cli):
+
+```bash
+cargo install cyrs-cli
+```
+
+## Library
+
+Add `cyrs-lang` to your `Cargo.toml`:
+
+```toml
+[dependencies]
+cyrs-lang = "0.1"
+```
+
+API docs: [docs.rs/cyrs-lang](https://docs.rs/cyrs-lang).
+
+## Language server
+
+The `cyrs-lsp` binary speaks LSP and can be wired into any compatible editor. See the [`demo/`](https://github.com/phall1/cyrs/tree/main/demo) directory in the repo for editor integration samples.
+
+## Requirements
+
+- Rust 1.94 or newer (MSRV).

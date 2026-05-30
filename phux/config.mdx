@@ -1,0 +1,93 @@
+---
+title: "Configuration"
+description: "Scaffold, inspect, and override phux settings with a single TOML file"
+icon: "sliders"
+---
+
+phux is **config-driven**: a single TOML file is the whole source of truth, and phux never writes settings back from running state. There is no `set-option` verb at runtime — you edit the file.
+
+The defaults you don't override ship *inside the binary* as an embedded, annotated `default.toml`. Your `config.toml` is a sparse overlay merged on top of it leaf-by-leaf. A key you omit keeps tracking the binary's default, so a phux upgrade that improves a default reaches you automatically — your file is overrides, not a frozen snapshot.
+
+A missing config file is not an error. phux runs on the embedded defaults alone until you scaffold a file.
+
+## When to use it
+
+- You want to change a phux default and need to see what's available to override.
+- You want to confirm which file phux is reading.
+- You want to inspect the effective settings phux would use right now, including overrides.
+
+## The `phux config` commands
+
+All four commands are client-local. They inspect and scaffold the on-disk config without contacting a running server.
+
+```bash
+phux config path            # print the resolved config path (no I/O)
+phux config init            # scaffold a commented starter at that path
+phux config show            # print the effective config as canonical TOML
+phux config show --default  # print the shipped defaults verbatim
+```
+
+### `phux config path`
+
+Prints the resolved config path. Pure path math — it prints whether or not the file exists.
+
+```bash
+$ phux config path
+/home/you/.config/phux/config.toml
+```
+
+Use this to confirm where `phux config init` would write, or to pipe into an editor:
+
+```bash
+$EDITOR "$(phux config path)"
+```
+
+### `phux config init`
+
+Writes a commented starter config to the resolved path. The file is a **commented projection of the shipped defaults**: every option appears next to its real default value, but every line is commented out.
+
+```bash
+$ phux config init
+wrote /home/you/.config/phux/config.toml
+```
+
+The file is inert until you uncomment a line, so the binary's defaults stay authoritative. Uncommenting is the only way the file changes behavior — that's what lets future upgrades to a default still reach you.
+
+`phux config init` refuses to overwrite an existing config. Pass `--force` to replace it:
+
+```bash
+phux config init --force
+```
+
+### `phux config show`
+
+Prints the **effective** config — the shipped defaults merged with your overrides — as canonical TOML. Use this to answer "what is phux actually using right now?"
+
+```bash
+$ phux config show
+# ... full merged TOML ...
+```
+
+Pass `--default` to print the shipped defaults verbatim, comments and all, ignoring any user config:
+
+```bash
+phux config show --default
+```
+
+<Note>
+`phux config show` renders the merged TOML *table*, so it reformats the output: comments are dropped and inline tables expand to dotted-key form. It answers "what is my effective config," not "show me my file." Use `cat "$(phux config path)"` for the latter.
+</Note>
+
+## Typical workflow
+
+```bash
+phux config init                      # 1. Scaffold the starter
+$EDITOR "$(phux config path)"         # 2. Uncomment + edit the options you want to override
+phux config show                      # 3. Confirm the effective config matches your intent
+```
+
+## Design notes
+
+phux's config UX follows the Ghostty model: one file, no runtime `set-option`, defaults embedded in the binary. The scaffold is generated from the embedded `default.toml` rather than hand-maintained, so the documented defaults can never drift from the real ones.
+
+`phux config` commands never touch the server — they're client-local inspection and scaffolding. Live-reload is not yet shipped.

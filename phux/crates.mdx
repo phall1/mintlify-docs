@@ -23,6 +23,35 @@ phux is a Cargo workspace. Only `phux-protocol` is intended for publication; the
 - **`phux-client`** — UDS attach loop; raw-mode/altscreen guard; stdin keyboard parser; a `libghostty_vt::Terminal` per attached terminal driven by `RenderState` (ADR-0013). The per-row dirty path is currently bypassed in favour of a full-screen redraw per frame, pending the libghostty FFI investigation tracked as `phux-l0t`.
 - **`phux-config`** — TOML schema \+ loader with `line:col` errors; keybind parser/trie resolver; status `Widget` trait \+ time / session-name widgets.
 
+## Browser client (standalone wasm workspace)
+
+The browser client lives under `clients/` as its own Cargo workspace, excluded from the native `cargo build --workspace` and CI. It targets `wasm32-unknown-unknown` only.
+
+| Crate | Purpose |
+| --- | --- |
+| `phux-vt-web` | Safe Rust driver over `ghostty-vt.wasm`: create a `Terminal`, `write` VT bytes, `resize`, read a styled `Grid` (cells \+ fg/bg \+ cursor) |
+| `phux-web` | Browser client: WebSocket `Session` over the engine \+ `<canvas>` renderer \+ keyboard input, exposed via a `#[wasm_bindgen]` `start()` entry point |
+
+The non-obvious shape: there are **two wasm modules, one nested inside the other**. The Zig-built `ghostty-vt.wasm` engine is vendored as a build artifact and embedded into `phux_web_bg.wasm` via `include_bytes!`. At runtime, `phux-vt-web` instantiates the engine as a sibling wasm instance through the plain `WebAssembly` JS API — no Zig is linked into the Rust binary, and bytes cross the linear-memory boundary (ADR-0025).
+
+This is also where `phux-protocol`'s default-features-off shell pays off: the codec compiles to wasm without the server's `libghostty-vt` git dependency (ADR-0024).
+
+### Building the browser client
+
+Two steps, because of the two wasm modules. Run inside the phux nix devshell (`nix develop`), which provides Zig, `wasm-pack`, and a matched `wasm-bindgen` CLI:
+
+```sh
+# 1. Build the engine artifact (regenerate when ghostty bumps).
+scripts/build-vt-wasm.sh
+# → clients/phux-vt-web/vendor/ghostty-vt.wasm
+
+# 2. Build the client to a web package.
+cd clients/phux-web && wasm-pack build --target web --release --out-dir pkg
+# → pkg/phux_web.js + pkg/phux_web_bg.wasm
+```
+
+`build.rs` in `phux-vt-web` fails with a clear message if step 1 has not run. The `wasm-bindgen` crate pin must equal the `wasm-bindgen-cli` version.
+
 ## On the roadmap
 
 - **`phux-client-sdk`** — L1-only typed Rust handle for agents. Spawn / observe / drive terminals over the wire, no TUI vocabulary.

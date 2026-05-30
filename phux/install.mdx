@@ -1,0 +1,58 @@
+---
+title: "Install"
+description: "Install the phux binary via Homebrew or pull the phux-protocol crate from crates.io"
+icon: "download"
+---
+
+phux ships through two independent channels: prebuilt binaries via a
+Homebrew tap, and the `phux-protocol` wire crate on crates.io. The
+binary is not on crates.io — it needs `zig` to build `libghostty-vt`, so
+you get a prebuilt artifact instead.
+
+## Install the binary with Homebrew
+
+Prebuilt tarballs are published for macOS (arm64 and x86_64) and Linux
+(x86_64) on every `v*` tag.
+
+```sh
+brew install phall1/phux/phux
+```
+
+This installs both the `phux` daemon/TUI and the `phux-mcp` companion
+binary. To verify:
+
+```sh
+phux --version
+```
+
+Once installed, head to the [Quickstart](/phux/quickstart#run) to start
+the daemon and attach the TUI.
+
+<Note>
+  `x86_64` builds let `zig` auto-detect the CI runner's CPU and may
+  carry instructions specific to that generation. On older hardware you
+  may see `SIGILL`; build from source in that case.
+</Note>
+
+## Use the `phux-protocol` crate
+
+`phux-protocol` is the only `publish = true` crate in the workspace. Use
+it when you need the wire types, codec, or version negotiation in your
+own Rust project — for example, when writing an alternate client or an
+agent that speaks L1 directly.
+
+Add it to your `Cargo.toml`:
+
+```toml
+[dependencies]
+phux-protocol = "0.0.1"
+```
+
+The crate has no git dependencies on its default feature set, so it
+packages cleanly and builds without the Nix dev shell.
+
+## Build from source
+
+If you want to hack on phux itself, or you're on a platform without a
+prebuilt tarball, build from source with the Nix dev shell. See the
+[Quickstart](/phux/quickstart) for the full flow.

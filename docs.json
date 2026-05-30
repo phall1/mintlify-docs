@@ -101,6 +101,7 @@
             "icon": "rocket",
             "pages": [
               "phux/introduction.mdx",
+              "phux/install.mdx",
               "phux/quickstart.mdx"
             ]
           },

@@ -105,6 +105,13 @@
             ]
           },
           {
+            "group": "Consumers",
+            "icon": "robot",
+            "pages": [
+              "phux/agent-cli.mdx"
+            ]
+          },
+          {
             "group": "Architecture",
             "icon": "sitemap",
             "pages": [

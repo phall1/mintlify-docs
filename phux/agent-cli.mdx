@@ -1,0 +1,159 @@
+---
+title: "Agent CLI"
+description: "Drive phux terminals from scripts and AI agents without a TTY"
+icon: "robot"
+---
+
+phux ships a structured CLI surface that AI agents and automation scripts use to spawn, observe, and drive terminals without attaching a TTY. Each verb is side-effect-free against live panes, returns a versioned JSON shape with `--json`, and mirrors child exit codes so it composes with shell `&&` chains.
+
+## When to use it
+
+Reach for the agent CLI when you want to:
+
+- Run a command in a phux pane and capture its exit code, output, and duration.
+- Snapshot a pane's screen contents (cells, scrollback, OSC 133 marks) as JSON.
+- Send keystrokes to a pane a human is also attached to without disrupting their view.
+- Wait for output to appear before continuing a script.
+- Create or list sessions from a Makefile, CI job, or agent harness.
+
+The TUI consumer (`phux attach`) renders terminals as VT bytes. The agent CLI projects the same `libghostty_vt::Terminal` to structured data — reads issue `GET_SCREEN` and input rides `ROUTE_INPUT`, so neither attaches nor resizes the target pane.
+
+## Verb catalog
+
+| Verb | What it does |
+| --- | --- |
+| `phux ls` | List sessions on the running server. Does not auto-start a server. |
+| `phux new` | Create a session. Attaches by default; with `--json`, creates without attaching. |
+| `phux snapshot` | Read a pane's screen state. Optional cells, scrollback, and OSC 133 marks. |
+| `phux send-keys` | Route named keys or literal text to a single pane. |
+| `phux run` | Run a command in a pane and capture exit code, output, and duration. |
+| `phux wait` | Poll a pane until text appears or it goes idle. |
+
+Every verb accepts `--socket PATH`. Precedence: `--socket` flag, then `PHUX_SOCKET`, then `$XDG_RUNTIME_DIR/phux/phux.sock`, then `/tmp/phux-$UID/phux.sock`.
+
+## Targeting panes
+
+`snapshot`, `wait`, `send-keys`, and `run` accept a `TARGET` argument that resolves client-side against a `GET_STATE` snapshot:
+
+| Selector | Meaning |
+| --- | --- |
+| `.` | Current pane |
+| `=` | Last pane |
+| `name` | Session by name |
+| `name:N` or `name:tag` | Window in session |
+| `name:N.M` | Specific pane |
+| `@N` | Opaque pane id |
+
+When a selector matches several panes, phux picks the focused one, falling back to the first in snapshot order. `snapshot` and `wait` default `TARGET` to the last-focused session; `send-keys` and `run` require it.
+
+## The read-act-wait loop
+
+The canonical pattern is **read → act → wait → read**: snapshot the pane, send input or run a command, wait for the result to land, snapshot again.
+
+```sh
+phux send-keys build "cargo test" Enter
+phux wait build --until "test result:" --timeout 120
+phux snapshot build --json --scrollback 200 > out.json
+```
+
+When you only need a command's exit code and output, `phux run` is the higher-level alternative — it brackets the command with sentinels and mirrors `$?`, so it composes with shell control flow:
+
+```sh
+phux run build "cargo test" --json && phux run build "cargo bench"
+```
+
+Use `send-keys` + `wait` when driving interactive or long-lived programs; use `run` when you just want the exit code.
+
+<Warning>
+  `--until` matches **any** visible row, including the shell's echo of the command you just typed. Match on text that only appears in command output.
+</Warning>
+
+## JSON contracts
+
+Each `--json` verb emits a versioned struct. The `schema_version` field is the bump signal; new fields are added with `#[serde(default)]` so older consumers ignore them safely.
+
+### `phux ls --json`
+
+```json
+{
+  "schema_version": 1,
+  "sessions": [
+    { "name": "work", "windows": 3, "attached": true }
+  ]
+}
+```
+
+### `phux snapshot --json`
+
+`ScreenState` (schema version 3):
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pane` | u32 | Wire-local id of the captured pane. |
+| `cols`, `rows` | u16 | Grid dimensions. |
+| `cursor` | `{x, y, visible}` or null | Viewport-relative, zero-based. Null when not viewport-resident. |
+| `lines` | string[] | Viewport rows, top to bottom, right-trimmed. |
+| `scrollback` | string[] | History rows above the viewport, oldest first. Empty unless requested. |
+| `cells` | object[] or null | Per-cell SGR styles and OSC 133 marks. Present only with `--cells`. |
+
+`--scrollback` is tri-state: omit the flag for viewport only, pass `--scrollback` (or `--scrollback=0`) for all retained history, or `--scrollback N` for the most-recent `N` rows.
+
+`--cells` populates a sparse list — only cells with a non-default style or an OSC 133 semantic mark (`Input`, `Prompt`). Each entry carries `{ col, row, semantic?, style }` where `style` is nine SGR booleans plus `fg`/`bg` color tags.
+
+### `phux run --json`
+
+```json
+{
+  "command": "cargo test",
+  "exit_code": 0,
+  "output": "...",
+  "duration_ms": 8123,
+  "truncated": false
+}
+```
+
+`run` does not rely on shell integration — it brackets the command with `BEGIN`/`RC` markers and parses the sentinels. `duration_ms` is wall-clock from submit to sentinel-seen, including poll latency. `truncated` is `true` when the `BEGIN` marker scrolled out of the viewport; capture full output with a `snapshot --scrollback` afterwards.
+
+On timeout, `run --json` emits no JSON body — the signal is exit code `125` plus a stderr diagnostic.
+
+### `phux new --json`
+
+```json
+{ "session": "build", "terminal_id": 2 }
+```
+
+`--json` requires an explicit `-s NAME` and is create-only — a name already in use exits non-zero. Without `--json`, `phux new` creates and attaches, auto-assigning a numeric name if `-s` is omitted.
+
+## Exit codes
+
+Exit codes are **not uniform** across verbs — pick the right one for the check you want.
+
+| Verb | Exit codes |
+| --- | --- |
+| `ls` | `0` ok; `1` no server or unexpected result. |
+| `snapshot` | `0` ok; `1` failure (no server, serialize error, resolve miss). |
+| `send-keys` | `0` ok; `1` failure. |
+| `run` | The child's own code clamped to `0..=255`; `125` when phux gave up waiting (`--timeout`); `1` for no server or other wrapper error. |
+| `wait` | `0` condition met; `124` on `--timeout`; `1` no server or read error. |
+| `new` | `0` ok; `1` duplicate `-s` name or failure. |
+
+`run` reserves `125` (the `env`/`timeout` wrapper-failure convention) for "phux gave up," keeping it distinct from a child that legitimately exited `124`. `wait` wraps nothing, so it uses `124` for its own timeout.
+
+## Example: drive a build from an agent
+
+```sh
+# Create a dedicated session without attaching.
+phux new --json -s build
+
+# Run the build, capture the result.
+phux run build "cargo test --workspace" --timeout 300 --json > result.json
+
+# On failure, capture the failing tail.
+if [ "$(jq .exit_code result.json)" != "0" ]; then
+  phux snapshot build --json --scrollback 500 > tail.json
+fi
+```
+
+<Tip>
+  Flags must precede positional arguments for `run` and `wait` — clap's `trailing_var_arg` otherwise swallows them into the command line or target.
+</Tip>

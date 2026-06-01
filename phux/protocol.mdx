@@ -11,8 +11,12 @@ The phux wire protocol is layered (ADR-0015). Conformance is **per-tier** — a 
 The substrate. Every consumer speaks L1. Terminals are first-class primitives: spawn, observe, drive input, receive output, snapshot state.
 
 - Server → client _content_ is **VT bytes**, forwarded from the PTY after per-client capability rewriting.
-- Client → server _input_ is **structured key, mouse, focus, and paste events**, built from libghostty's own atoms (ADR-0008).
+- Client → server _input_ is **structured key, mouse, focus, paste, and selection events**, built from libghostty's own atoms (ADR-0008).
 - An agent SDK can speak L1 alone and never hears "session" or "window."
+
+### Selection is client-owned
+
+`INPUT_SELECTION` reports a copy-mode selection — character-wise, line-wise, or rectangular (Mosh-style block). The server stores selection state per terminal and emits nothing to the PTY; selection is purely a client UI concern. Extraction of plaintext is requested separately via a `COMMAND` frame (ADR-0025).
 
 ## L2 — Collection
 

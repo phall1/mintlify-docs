@@ -1,34 +1,91 @@
 ---
 title: "Quickstart"
-description: "Build and run phux locally"
+description: "Install phux, attach a session, and drive it from a script or agent"
 icon: "rocket"
 ---
 
-phux is built with Rust and uses a Nix dev shell for reproducible toolchains.
+phux ships two consumers of the same terminal: a tmux-shaped TUI for humans and a headless surface — CLI verbs plus an MCP adapter — for scripts and agents. Both are in the box today.
 
-## Enter the dev shell
+## Install
 
-```bash
-nix develop          # or `direnv allow` once, then auto
-```
-
-The shell pins Rust 1.90, includes `zig_0_15` for libghostty-vt builds, plus `nextest`, `deny`, `watch`, `insta`, `mutants`, and `just`.
-
-## Build and check
+The fastest path on macOS and Linux x86_64:
 
 ```bash
-just check           # type-check across the workspace
-just ci              # everything CI must pass
+brew install phall1/phux/phux
 ```
 
-## Run
+Apple Silicon and Linux aarch64 build fine from source today; a bottle is not in the tap yet.
 
-Today's binary ships `attach` and `server` only, with tmux-style auto-spawn. The server listens on a UDS at `$XDG_RUNTIME_DIR/phux/phux.sock`.
+### From source
+
+phux pins its toolchain through a Nix dev shell — Rust 1.90 plus `zig_0_15` for libghostty-vt's build, with `nextest`, `deny`, `watch`, `insta`, `mutants`, and `just` on `PATH`.
+
+```bash
+git clone https://github.com/phall1/phux
+cd phux
+nix develop          # or `direnv allow` once, then auto on cd
+cargo run --bin phux # auto-spawns a server and attaches
+```
+
+## Attach the TUI
+
+Running `phux` with no arguments auto-spawns a server and attaches:
+
+```bash
+phux                 # attach (and auto-spawn a server if none is running)
+```
+
+Behind that command: a `phux server` daemon binds to a UDS at `$XDG_RUNTIME_DIR/phux/phux.sock`, opens one PTY-backed terminal in your `$SHELL`, and the client starts rendering. Detach with the default prefix (`Ctrl-A d`) — the server keeps running. Run `phux` again to re-attach where you left off.
+
+You can also run the daemon explicitly:
 
 ```bash
 phux server          # start the daemon
 phux attach          # attach the TUI client
 ```
+
+## Drive it headlessly
+
+Every operation the TUI performs is also a CLI verb you can run without a TTY. Use these from shell scripts, CI jobs, or as the surface an agent calls.
+
+| Verb | What it does |
+| --- | --- |
+| `phux ls` | List sessions and panes. Add `--json` for machine output. |
+| `phux snapshot` | Capture the visible grid of a pane. |
+| `phux send-keys` | Send structured key events to a pane. |
+| `phux run` | Run a command in a pane and pass through its exit code. |
+| `phux wait` | Block until a pane reaches a state. |
+| `phux watch` | Stream live events (`--json` for one event per line). |
+| `phux new` / `kill` / `rename` | Lifecycle for panes and sessions. |
+| `phux config` | Inspect the merged config. |
+
+Panes are addressed by the same selector grammar the TUI uses, so a script and a person target the same terminal the same way.
+
+```bash
+phux ls --json                       # list sessions and panes
+phux run . "echo hello && exit 3"    # run in the focused pane; exit 3 propagates
+phux watch --json .                  # stream events; Ctrl-C to stop
+```
+
+## Drive it from an agent (MCP)
+
+`phux-mcp` is a separate binary in the same workspace. It speaks JSON-RPC over stdio and exposes the same core verbs as MCP tools, so any MCP client can spawn, observe, and drive terminals.
+
+```bash
+phux-mcp             # JSON-RPC over stdio; wire into your MCP client
+```
+
+Point your MCP client (Claude Desktop, Cursor, etc.) at the `phux-mcp` command and the terminal becomes a tool the model can call directly.
+
+## Status today
+
+What ships in v0.1:
+
+- TUI: attach, detach, splits, status bar, keybindings, multi-client attach.
+- Headless CLI verbs and the `phux-mcp` adapter.
+- Bytes-on-wire content with Kitty keyboard, OSC 8, OSC 133, true colour, and image protocols passing through.
+
+Still on the wire but not yet routed: federation (`SATELLITE{host, id}` is accepted but not yet forwarded). The typed Rust SDK crate is convenience on top of surfaces that already ship.
 
 ## Philosophy
 

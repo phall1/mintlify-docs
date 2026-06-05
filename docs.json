@@ -110,6 +110,7 @@
             "pages": [
               "phux/protocol.mdx",
               "phux/crates.mdx",
+              "phux/policy.mdx",
               "phux/non-goals.mdx"
             ]
           }

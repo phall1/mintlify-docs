@@ -1,0 +1,104 @@
+---
+title: "Policy extension points"
+description: "Plug custom authorization, audit, and provenance into phux-server without forking"
+icon: "shield-halved"
+---
+
+phux-server ships with extension points so downstream consumers can layer their own authorization, audit logging, and input provenance on top of the public protocol — without forking the public crates.
+
+By default the server is **fully permissive**: every operation is allowed, no audit events are written, and inputs are tagged as `Unknown`. You opt in to stricter behavior by implementing the traits below and handing the server a `PolicyBundle` at startup.
+
+## When to use this
+
+Reach for the policy extension points when you need to:
+
+- Restrict which consumers can spawn, attach, or send input to a terminal.
+- Attenuate the capabilities a consumer requests at HELLO time.
+- Ship structured audit events to a SIEM, log file, or compliance store.
+- Distinguish human input from agent input on a per-frame basis.
+- Authorize routing decisions when a hub forwards to a satellite host.
+
+If you only run phux locally for yourself, you can ignore everything on this page — the defaults already behave the way you expect.
+
+## Wire types
+
+`phux-protocol` exposes the wire-friendly types these extension points exchange. They are `Serialize` / `Deserialize` so they can be embedded in audit pipelines, capability tokens, and structured logs.
+
+| Type | Purpose |
+| --- | --- |
+| `PeerIdentity` | Transport-level identity (uid, pid, exe path, source address, transport kind). |
+| `TransportType` | Classifier for the carrying transport: `UnixSocket`, `SshTunnel`, `Quic`, `WebSocket`, `Localhost`. |
+| `Capability` | Layer-scoped grant: ops, optional terminal/collection allow-lists, optional expiry. |
+| `Decision` | Outcome of an authorization check: `Allow`, `Deny`, `Alert { threat_score }`, `Challenge { mechanism }`. |
+| `AuditEvent` | Self-contained record of one decision: timestamp, consumer, peer, action, target, decision, latency, metadata. |
+| `InputTag` / `TaggedInput` | Provenance tag attached to an input frame, including a `ConsumerClass` (human, MCP agent, SDK agent, automation, unknown) and an intermediary chain. |
+| `TerminalOp`, `CollectionOp`, `MetadataOp`, `MetadataScope` | Action discriminants used in audit events and policy checks. |
+
+Peer identity is populated by the transport: Unix domain sockets contribute uid, pid, and exe path via SO_PEERCRED; WebSocket connections contribute the source IP.
+
+## Server traits
+
+`phux-server` defines three traits a downstream crate implements to plug into the server.
+
+### `PolicyEngine`
+
+Called at every security-relevant decision point. The server intersects the capabilities you return from `authorize_hello` with what the consumer requested, so you can attenuate but not expand a grant.
+
+Methods:
+
+- `authorize_hello(peer, requested_caps) -> Vec<Capability>`
+- `authorize_terminal_op(consumer, terminal_id, op) -> Decision`
+- `authorize_collection_op(consumer, collection_id, op) -> Decision`
+- `authorize_metadata_op(consumer, scope, op) -> Decision`
+- `authorize_satellite_route(hub_consumer, satellite, delegated_caps) -> Decision`
+
+All methods are `&self` and return `Pin<Box<dyn Future>>`, so a single `Arc<dyn PolicyEngine>` is shared across tasks.
+
+### `AuditSink`
+
+A durable sink for `AuditEvent`s. Write to a file, stream to a SIEM, or drop events. `query` is optional and defaults to returning an empty result, so most sinks only need to implement `write`.
+
+### `InputProvenance`
+
+Called for every input frame before it is routed to the PTY. Tag the payload with a `ConsumerClass` and a chain of intermediaries (for example, `["mcp", "claude", "phux-mcp"]`) so downstream consumers can distinguish human keystrokes from agent-driven input.
+
+## Defaults
+
+The server ships three default implementations so a server with no custom policy behaves exactly as before:
+
+- `PermissivePolicy` — allows every operation and returns the requested capabilities unchanged.
+- `NoopAuditSink` — drops every event.
+- `UnknownProvenance` — tags every input as `ConsumerClass::Unknown` with an empty chain.
+
+These are bundled into the `PolicyBundle::default()` value held by `ServerConfig` and `ServerState`.
+
+## Wiring in a custom bundle
+
+`PolicyBundle` holds the three traits behind `Arc`s and is cheap to clone. Build one and hand it to the server at startup:
+
+```rust
+use std::sync::Arc;
+use phux_server::policy::{PolicyBundle, PolicyEngine, AuditSink, InputProvenance};
+
+let bundle = PolicyBundle {
+    engine: Arc::new(MyPolicyEngine::new()),
+    audit: Arc::new(MyAuditSink::connect()?),
+    provenance: Arc::new(MyProvenance::default()),
+};
+
+let config = ServerConfig {
+    policy: Some(bundle),
+    ..ServerConfig::default()
+};
+```
+
+If `policy` is `None`, the server falls back to `PolicyBundle::default()`.
+
+## Error handling
+
+Both traits surface typed errors:
+
+- `PolicyError` — `Unauthorized`, `ExpiredCapability`, `InvalidSatelliteRoute`, `Internal`.
+- `AuditError` — `WriteFailed`, `QueryFailed`.
+
+A `Decision::Deny` is the normal way to refuse an operation; `PolicyError` is for the policy engine itself failing.

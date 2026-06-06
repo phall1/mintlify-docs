@@ -112,6 +112,13 @@
               "phux/crates.mdx",
               "phux/non-goals.mdx"
             ]
+          },
+          {
+            "group": "Operations",
+            "icon": "gauge",
+            "pages": [
+              "phux/operations.mdx"
+            ]
           }
         ]
       }

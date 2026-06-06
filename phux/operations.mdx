@@ -1,0 +1,53 @@
+---
+title: "Operations"
+description: "Configure phux logging, route output safely, and rely on built-in redaction for keystrokes and pastes"
+icon: "gauge"
+---
+
+phux treats logs as a controlled operator surface: a single dial for verbosity, owner-only files on disk, and input atoms that narrate themselves without leaking the bytes they carry.
+
+## Log destinations
+
+Each binary picks a sink that matches its role:
+
+- **Server and foreground commands** (`phux server`, one-shot control verbs, anything invoked with `--json`) log to **stderr**. Stdout is reserved for protocol and PTY traffic.
+- **TUI client** (`phux attach`, naked `phux`, `phux new`) logs to a **file** only. The attach loop owns the alt screen, so a stray log line would corrupt the display.
+
+The client's default log path is `$XDG_STATE_HOME/phux/client-<pid>.log` (falls back to `$HOME/.local/state/phux/`). The pid scope keeps concurrent clients from interleaving.
+
+## Environment variables
+
+| Variable | Effect |
+|---|---|
+| `RUST_LOG` | Filter directives. Default `phux=info,warn`. |
+| `PHUX_LOG=<path>` | Write logs to `<path>` via a non-blocking writer. The server tees to this file in addition to stderr; the client writes here instead of its per-pid default. The parent directory is created if missing. |
+| `PHUX_LOG_FORMAT` | `text` (default) for the human single-line layer, or `json` for one JSON object per line. Applies to both stderr and file sinks. |
+
+Pick `json` when you want to grep or `jq` the output; pick `text` for live tailing.
+
+## Sensitive data is redacted by default
+
+Log files are created with mode `0o600` (owner-only) on Unix, so another user on a shared host cannot read them. If phux finds an existing log file with looser permissions, it re-tightens it before writing.
+
+Input atoms are **self-narrating and redaction-safe**. `KeyEvent` and `PasteEvent` report only structural facts — action, physical key, modifiers, payload *lengths* — and never the typed text or pasted bytes. This holds at every log level, including `RUST_LOG=phux=trace`. A trace line records that a keystroke or paste happened, with its shape, without spilling the secret it carried.
+
+## Capturing a session
+
+Set the file path, format, and filter on the command line:
+
+```bash
+PHUX_LOG=/tmp/phux.jsonl \
+PHUX_LOG_FORMAT=json \
+RUST_LOG=phux=debug \
+  phux attach
+```
+
+For a server-side trace, run the same prefix against `phux server` or a headless reproducer. Span close events report `time.busy` and `time.idle`, so any `#[instrument]` span tells you how long it took.
+
+## When to turn the dial up
+
+- **`info` (default).** Crashes, warnings, attach handshakes, and control commands. Safe to leave on.
+- **`debug`.** Per-tick synthesis and per-frame client paint. Use this to localize lag between server fan-out and client render.
+- **`trace`.** Per-chunk PTY volume and per-event input narration. Useful for "what was the PTY doing right before the stall." Keystroke and paste contents remain redacted.
+
+Reset to the default once you are done — `debug` and `trace` write enough volume to dominate the file on a busy session.

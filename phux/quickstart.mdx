@@ -23,12 +23,30 @@ just ci              # everything CI must pass
 
 ## Run
 
-Today's binary ships `attach` and `server` only, with tmux-style auto-spawn. The server listens on a UDS at `$XDG_RUNTIME_DIR/phux/phux.sock`.
+The binary ships with tmux-style auto-spawn. The server listens on a UDS at `$XDG_RUNTIME_DIR/phux/phux.sock`.
 
 ```bash
 phux server          # start the daemon
 phux attach          # attach the TUI client
 ```
+
+## Create a named session
+
+`phux new` creates a session and attaches to it. The first positional argument is the **session name**, not a command to run.
+
+```bash
+phux new work        # create and attach to a session named "work"
+phux new -s work     # same thing, flag form (required with --json)
+phux new             # auto-name from the session-name-template
+```
+
+To seed the first pane with a command instead of the default shell, pass it after `--`:
+
+```bash
+phux new web -- htop
+```
+
+A name that already exists is an error — use `phux attach <name>` to join an existing session.
 
 ## Philosophy
 

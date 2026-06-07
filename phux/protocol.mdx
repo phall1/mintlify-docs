@@ -1,6 +1,6 @@
 ---
 title: "Protocol layers"
-description: "L1 Terminal, L2 Collection, L3 Metadata"
+description: "L1 Terminal, L2 reserved, L3 Metadata"
 icon: "layer-group"
 ---
 
@@ -8,19 +8,19 @@ The phux wire protocol is layered (ADR-0015). Conformance is **per-tier** — a 
 
 ## L1 — Terminal
 
-The substrate. Every consumer speaks L1. Terminals are first-class primitives: spawn, observe, drive input, receive output, snapshot state.
+The substrate. Every consumer speaks L1. Terminals are first-class primitives: spawn, observe, drive input, receive output, snapshot state. Atomic multi-terminal teardown rides L1 as a single `KILL_TERMINALS` op.
 
 - Server → client _content_ is **VT bytes**, forwarded from the PTY after per-client capability rewriting.
 - Client → server _input_ is **structured key, mouse, focus, and paste events**, built from libghostty's own atoms (ADR-0008).
 - An agent SDK can speak L1 alone and never hears "session" or "window."
 
-## L2 — Collection
+## L2 — Reserved
 
-An optional lifecycle bundle. Collections group terminals for spawn/teardown semantics. The TUI's tmux vocabulary (sessions, windows) lives here.
+There is **no L2 collection tier**. The L2 discriminant range stays reserved on the wire but is unused, and won't be allocated for a collection lifecycle service (ADR-0030). Group membership, names, and the TUI's tmux vocabulary (sessions, windows) are reconstructed by consumers from L3 metadata.
 
 ## L3 — Metadata
 
-An opaque key/value store on top. Consumers — the TUI, a future GUI, an SDK — keep their own state here. The wire is unaware of meaning; consumers attach semantics.
+An opaque key/value store on top. Scopes are `Terminal`, `Group`, and `Global`; values are opaque bytes. Consumers — the TUI, a future GUI, an SDK — keep their own state here, including grouping. `GroupId` is an opaque grouping key for metadata scoping, not a lifecycle handle. The wire is unaware of meaning; consumers attach semantics.
 
 ## Federation
 

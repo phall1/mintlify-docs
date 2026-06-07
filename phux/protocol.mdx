@@ -1,38 +1,56 @@
 ---
 title: "Protocol layers"
-description: "L1 Terminal, L2 Collection, L3 Metadata"
+description: "Layered wire protocol: L1 Terminal substrate and L3 Metadata"
 icon: "layer-group"
 ---
 
-The phux wire protocol is layered (ADR-0015). Conformance is **per-tier** — a consumer only speaks the layers it cares about.
+The phux wire protocol is layered (ADR-0015). Conformance is **per-tier** — a consumer only speaks the layers it cares about. As of `PROTOCOL_VERSION 0.3.0`, the substrate is **engine-delegated** (ADR-0030): both ends run libghostty, so the wire carries only identity, lifecycle, transport, opaque terminal bytes, and metadata. Any structured view of a terminal is a consumer-side projection.
 
 ## L1 — Terminal
 
-The substrate. Every consumer speaks L1. Terminals are first-class primitives: spawn, observe, drive input, receive output, snapshot state.
+The substrate. Every consumer speaks L1. Terminals are first-class primitives: spawn, observe, drive input, receive output, snapshot state, and atomically tear down.
 
 - Server → client _content_ is **VT bytes**, forwarded from the PTY after per-client capability rewriting.
 - Client → server _input_ is **structured key, mouse, focus, and paste events**, built from libghostty's own atoms (ADR-0008).
-- An agent SDK can speak L1 alone and never hears "session" or "window."
+- An agent consumer can speak L1 alone and never hears "session" or "window."
 
-## L2 — Collection
+### Atomic group teardown
 
-An optional lifecycle bundle. Collections group terminals for spawn/teardown semantics. The TUI's tmux vocabulary (sessions, windows) lives here.
+The one thing a consumer cannot do correctly on its own is an atomic group teardown — killing N terminals one at a time exposes intermediate states to other observers. That single irreducible need is met by one L1 command:
+
+```text
+Command::KillTerminals { ids: [TerminalId, ...] }   // tag 0x09
+```
+
+The server applies it all-or-nothing under its single state lock. Atomicity earns one operation, not a tier.
+
+## L2 — Reserved (no collection tier)
+
+There is no L2 collection tier. The L2 discriminant range stays reserved so the three-tier numbering from ADR-0015 is not reused, but no L2 message is allocated. Group lifecycle — "these terminals belong together, tear them down as a unit" — is L3 metadata plus client logic, with the atomic-teardown exception above (ADR-0030).
+
+Earlier drafts shipped `CREATE_SESSION`, `RENAME_SESSION`, and `KILL_COLLECTION` as L1 commands. As of 0.3.0 these are withdrawn:
+
+- **create** = `SPAWN_TERMINAL` + an L3 metadata SET (`phux.session.create/v1`)
+- **rename** = an L3 metadata SET (`phux.session.name/v1`)
+- **kill-group** = `KILL_TERMINALS`
 
 ## L3 — Metadata
 
-An opaque key/value store on top. Consumers — the TUI, a future GUI, an SDK — keep their own state here. The wire is unaware of meaning; consumers attach semantics.
+An opaque key/value store on top. Consumers — the TUI, the browser client, an agent — keep their own state here. The wire is unaware of meaning; consumers attach semantics.
+
+L3 owns the conventions for session names, window names, and group membership. The server stores; it does not interpret.
 
 ## Federation
 
-Identity is federation-ready from day one (ADR-0007). `TerminalId` is a tagged union:
+Identity is federation-ready from day one (ADR-0007, ADR-0016). `TerminalId` is a tagged union:
 
 ```text
-TerminalId = LOCAL
+TerminalId = LOCAL    { id }
            | SATELLITE { host, id }
 ```
 
-v0.1 servers construct `LOCAL` only; v0.2\+ hubs route to satellites. The wire bytes do not change.
+v0.1 servers construct `LOCAL` only; v0.2+ hubs route to satellites. The wire bytes do not change.
 
 ## Spec
 
-The normative wire protocol lives in [`SPEC.md`](https://github.com/phall1/phux/blob/main/SPEC.md), with frame format in Appendix A.
+The normative wire protocol lives in the [`docs/spec/`](https://github.com/phall1/phux/tree/main/docs/spec) tree — `L1.md` for the substrate, `L3.md` for the metadata model, and `appendix-encoding.md` for the byte-level codec.

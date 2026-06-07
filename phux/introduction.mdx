@@ -12,14 +12,14 @@ icon: "star"
 
 - **libghostty end-to-end.** Both server and client run `libghostty_vt::Terminal`. Nothing in the middle re-parses VT — modern terminal protocols (Kitty keyboard, true colour, OSC 8, OSC 133, images) pass through.
 - **Asymmetric wire.** Server → client _content_ is **VT bytes** (per-client capability-rewritten); client → server _input_ is **structured key, mouse, focus, and paste events** built from libghostty's own atoms.
-- **Layered protocol.** **L1 Terminal** is the substrate every consumer speaks; **L2 Collection** is an optional lifecycle bundle; **L3 Metadata** is an opaque KV store. Conformance is per-tier — an agent SDK speaks L1 alone and never hears "session" or "window."
+- **Layered protocol.** **L1 Terminal** is the substrate every consumer speaks; **L3 Metadata** is an opaque KV store on top. There is no L2 collection tier — grouping is L3 metadata plus client logic, with one atomic teardown op (`KILL_TERMINALS`) on L1 (ADR-0030). Conformance is per-tier — an agent consumer speaks L1 alone and never hears "session" or "window."
 - **Federation-ready identity.** `TerminalId` is a `LOCAL` / `SATELLITE { host, id }` tagged union from day one. The wire bytes don't change when hubs route to satellites.
 
 ## Status
 
 **Pre-alpha. Spec first, code second.** End-to-end attach works for a single pre-seeded session today; most of the substrate's lifecycle, metadata, and federation surface is not yet wired.
 
-See the [VISION](https://github.com/phall1/phux/blob/main/VISION.md) for the long arc.
+See the [vision doc](https://github.com/phall1/phux/blob/main/docs/vision.md) for the long arc.
 
 ## License
 

@@ -23,11 +23,48 @@ just ci              # everything CI must pass
 
 ## Run
 
-Today's binary ships `attach` and `server` only, with tmux-style auto-spawn. The server listens on a UDS at `$XDG_RUNTIME_DIR/phux/phux.sock`.
+The server listens on a UDS at `$XDG_RUNTIME_DIR/phux/phux.sock`. Start it, then attach with tmux-style auto-spawn:
 
 ```bash
 phux server          # start the daemon
 phux attach          # attach the TUI client
+```
+
+The binary also ships scripting verbs — `new`, `ls`, `kill`, `rename`, `snapshot`, `send-keys`, `run`, `wait`, `watch`, and `tag` — that act on existing sessions, windows, and panes through a single selector grammar.
+
+## Address terminals with selectors
+
+Every verb that targets an existing pane (for example, `kill`, `snapshot`, `send-keys`, `run`, `wait`) takes the same positional `TARGET`. Selectors resolve client-side against a `GET_STATE` snapshot; the server never parses them.
+
+| Selector     | Meaning                                                  |
+|--------------|----------------------------------------------------------|
+| `.`          | the client's focused pane, window, or session            |
+| `name`       | session by name                                          |
+| `name:N`     | session `name`, window index `N`                         |
+| `name:N.M`   | session `name`, window `N`, pane `M`                     |
+| `@N`         | opaque ID for a pane, window, or session                 |
+| `=`          | the most recently focused target                         |
+| `#tag`       | every terminal carrying L3 tag `tag`                     |
+
+Use the most specific form when ambiguity matters. Omit the target on `snapshot` and `wait` to default to the focused or last session.
+
+## Tag terminals
+
+Tags are freeform labels stored as L3 metadata under `phux.tags/v1`, scoped per terminal. Once a terminal is tagged, the `#tag` selector resolves to every terminal carrying that label — exactly the way a session name resolves to many panes — so you can fan a verb out across an ad-hoc set without re-encoding it each time.
+
+Use `phux tag` to list, add, and remove tags. The tags themselves are bare strings; the leading `#` is optional when you write them:
+
+```bash
+phux tag add work:1.0 build ci    # tag a pane with 'build' and 'ci'
+phux tag ls .                      # list the focused pane's tags
+phux tag rm @7 ci                  # remove 'ci' from pane @7
+```
+
+Once panes are tagged, `#tag` works anywhere a `TARGET` does:
+
+```bash
+phux kill #build                   # kill every terminal tagged 'build'
+phux snapshot #web                 # snapshot every terminal tagged 'web'
 ```
 
 ## Philosophy

@@ -1,0 +1,62 @@
+---
+title: "When to use phux"
+description: "Decide whether phux fits your workflow today, and where it's still moving."
+icon: "compass"
+---
+
+phux is a terminal multiplexer whose differentiator is the wire, not the splits: a terminal is an object other programs can attach to, and the headline case is a human and their agents driving the **same** live terminal.
+
+If you want that, phux is for you today. If you want a battle-hardened local multiplexer with a decade of muscle memory, you mostly don't need it yet. Find your row below.
+
+## Find yourself
+
+| You are | phux? | Why |
+| --- | --- | --- |
+| A human who wants their agent to *see and drive the same terminal they do* | **Yes — this is the point** | One server, many consumers. The agent attaches to your live pane, reads its grid, and types into it. |
+| An agent author who wants structured, scriptable terminal control | **Yes** | `ls` / `snapshot` / `send-keys` / `run` / `wait` / `watch` with `--json`, plus `phux-mcp`. The CLI and JSON schema are the contract. |
+| A tmux user who wants a modern, protocol-honest multiplexer | **Yes, with eyes open** | Attach/detach, splits, status bar, and keybindings work. It's v0.1, so expect rough edges and missing conveniences. |
+| Someone on one SSH session who just wants splits and persistence | **Probably not yet** | tmux already does this well, and phux adds no wire advantage for a single local user. Revisit when you want remoting or agents. |
+| A fleet operator who wants to drive terminals across machines | **Not yet — addressed for, not wired** | The wire already speaks `SATELLITE{host, id}`, but nothing routes it. That's the v0.2 arc. |
+
+## The honest gaps
+
+phux is v0.1. The wire, the reference TUI's attach/detach/multi-pane behavior, and the full modern-protocol passthrough are solid and won't move under you. The headless verbs and `phux-mcp` are real and tested, but the API may still wiggle before 1.0.
+
+Cross-machine routing, a native GUI consumer, a typed Rust SDK crate, and predictive local echo are designed and addressed-for but **not wired yet**. If a capability isn't in the "works today" list, treat it as a promise, not a feature.
+
+## Try the agent-driven flow
+
+If the human-plus-agent row is why you're here, the shortest path is:
+
+```bash
+phux server          # start the daemon
+phux attach          # attach your TUI
+```
+
+Then, from an agent or script, drive the same terminal headlessly:
+
+```bash
+phux ls --json
+phux snapshot --json
+phux send-keys "echo hello\n"
+phux wait --idle 500ms
+```
+
+See the [Quickstart](/phux/quickstart) for build and run details.
+
+## Go deeper
+
+<CardGroup cols={2}>
+  <Card title="Introduction" icon="star" href="/phux/introduction">
+    What phux is and why it's built on libghostty end-to-end.
+  </Card>
+  <Card title="Protocol" icon="diagram-project" href="/phux/protocol">
+    The L1/L2/L3 layering and the asymmetric wire.
+  </Card>
+  <Card title="Crates" icon="cubes" href="/phux/crates">
+    Where the server, client, MCP, and protocol live.
+  </Card>
+  <Card title="Non-goals" icon="ban" href="/phux/non-goals">
+    What phux deliberately does not do.
+  </Card>
+</CardGroup>

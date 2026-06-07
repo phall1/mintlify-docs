@@ -101,6 +101,7 @@
             "icon": "rocket",
             "pages": [
               "phux/introduction.mdx",
+              "phux/when-to-use.mdx",
               "phux/quickstart.mdx"
             ]
           },

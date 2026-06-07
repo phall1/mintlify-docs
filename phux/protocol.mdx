@@ -14,6 +14,28 @@ The substrate. Every consumer speaks L1. Terminals are first-class primitives: s
 - Client → server _input_ is **structured key, mouse, focus, and paste events**, built from libghostty's own atoms (ADR-0008).
 - An agent SDK can speak L1 alone and never hears "session" or "window."
 
+### Multi-client viewport policy
+
+A Terminal is one PTY with one grid, so it can only render one size. When two clients with different viewport sizes attach the same Terminal, the server resolves a single authoritative geometry by applying the `defaults.window-size` policy across every subscriber's viewport — not last-writer-wins, which previously let differently-sized clients thrash the shared grid.
+
+The vocabulary mirrors tmux's `window-size` option:
+
+| Value | Behavior |
+| --- | --- |
+| `smallest` _(default)_ | Per-axis minimum. Nothing is cropped; larger views letterbox. |
+| `largest` | Per-axis maximum. Smaller views clamp and may cut content. |
+| `latest` | Track the most recently resized client's viewport. |
+| `manual` | Hold a fixed size; view sizes are ignored on attach and resize. |
+
+Set the policy in `phux.toml`:
+
+```toml
+[defaults]
+window-size = "smallest"
+```
+
+Zero-dimension viewports are ignored in the min/max so a transient resize-to-zero cannot collapse the grid. The wire format is unchanged — `VIEWPORT_RESIZE` and `TERMINAL_RESIZED` carry the same fields and `PROTOCOL_VERSION` stays `0.4.0`.
+
 ## L2 — Collection
 
 An optional lifecycle bundle. Collections group terminals for spawn/teardown semantics. The TUI's tmux vocabulary (sessions, windows) lives here.

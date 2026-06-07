@@ -1,10 +1,12 @@
 ---
 title: "Protocol layers"
-description: "L1 Terminal, L2 Collection, L3 Metadata"
+description: "L1 Terminal and L3 Metadata — what the wire carries and what consumers project"
 icon: "layer-group"
 ---
 
-The phux wire protocol is layered (ADR-0015). Conformance is **per-tier** — a consumer only speaks the layers it cares about.
+The phux wire protocol is layered (ADR-0015, refined by ADR-0030). Conformance is **per-tier** — a consumer only speaks the layers it cares about.
+
+Both ends of the wire run the same engine (libghostty), so the wire carries only **identity, lifecycle, transport, opaque terminal bytes, and L3 metadata**. Every structured view — screen state, panes, layouts, "run a command and wait" — is a **consumer-side projection**, never a wire tier.
 
 ## L1 — Terminal
 
@@ -14,13 +16,27 @@ The substrate. Every consumer speaks L1. Terminals are first-class primitives: s
 - Client → server _input_ is **structured key, mouse, focus, and paste events**, built from libghostty's own atoms (ADR-0008).
 - An agent SDK can speak L1 alone and never hears "session" or "window."
 
-## L2 — Collection
+### Multi-terminal teardown
 
-An optional lifecycle bundle. Collections group terminals for spawn/teardown semantics. The TUI's tmux vocabulary (sessions, windows) lives here.
+`KILL_TERMINALS { ids }` is the one irreducible batch operation at L1: the server tears down every listed terminal inside a single state-lock acquisition, all-or-nothing. Unknown or already-dead ids are skipped silently, so an empty list is a no-op that still acks `Ok`. Async `TERMINAL_CLOSED` frames confirm each teardown.
 
 ## L3 — Metadata
 
 An opaque key/value store on top. Consumers — the TUI, a future GUI, an SDK — keep their own state here. The wire is unaware of meaning; consumers attach semantics.
+
+Session lifecycle is **expressed entirely in L3**:
+
+- **Create a named session without attaching** — write `phux.session.create/v1` with JSON `{ name, command?, cwd? }`. The server seeds the primary terminal and publishes its id under `phux.session.created/v1` for the caller to read back.
+- **Rename a session** — write `phux.session.name/v1` with the UTF-8 value `current\0new`.
+- **Kill a session** — collect the session's terminal ids client-side, then send one `KILL_TERMINALS`.
+
+The server intercepts these conventional keys and applies the authoritative registry mutation so `ls` and `attach` keep one source of truth for names.
+
+## L2 — Dissolved
+
+Earlier drafts reserved an **L2 Collection** tier for session and window lifecycle. ADR-0030 dissolves it: the structured view of "a bundle of terminals" belongs in the consumer, and the one irreducible wire need (atomic multi-terminal teardown) is served by `KILL_TERMINALS` at L1.
+
+`CollectionId` is retained as an **opaque grouping key** threaded through `Scope::Collection`, `SpawnTerminal.collection`, and `CommandValue::CollectionId`. It is not a lifecycle tier.
 
 ## Federation
 
@@ -35,4 +51,4 @@ v0.1 servers construct `LOCAL` only; v0.2\+ hubs route to satellites. The wire b
 
 ## Spec
 
-The normative wire protocol lives in [`SPEC.md`](https://github.com/phall1/phux/blob/main/SPEC.md), with frame format in Appendix A.
+The normative wire protocol lives in [`SPEC.md`](https://github.com/phall1/phux/blob/main/SPEC.md), with frame format in Appendix A. Current `PROTOCOL_VERSION` is `0.3.0`.

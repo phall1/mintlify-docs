@@ -1,0 +1,85 @@
+---
+title: "Remote attach"
+description: "Attach a remote consumer to a phux server over TLS with a bearer pairing token"
+icon: "shield-keyhole"
+---
+
+A remote consumer — for example, the native mobile app — can attach to a single phux server over the network without an SSH tunnel. The link is encrypted with TLS, and the device authenticates with an opaque bearer token minted by `phux pair`.
+
+This path is opt-in and distinct from the local Unix socket and the future federation hub. Use it when one remote device needs to reach one server.
+
+## When the secure path engages
+
+The WebSocket bind address (`PHUX_WS_ADDR`) is the toggle. There is no separate "remote mode" flag.
+
+| Bind address | Behavior |
+| --- | --- |
+| Loopback (`127.0.0.1`, `::1`, unset) | Plaintext, unauthenticated. The historical browser-client dev path. |
+| Any routable address | TLS 1.3 plus bearer-token auth. Auto-provisions a self-signed certificate and reads the token store. |
+
+Binding off-loopback is treated as exposing the server: plaintext never reaches a routable address. A missing or unrecognized token is refused with HTTP 401 during the WebSocket upgrade, before any phux frame is read.
+
+## Pair a device
+
+`phux pair` mints a 256-bit bearer token, appends it to the token store, and prints the server certificate's SHA-256 fingerprint. The verb never contacts a running server — it only writes the token file — so you can pair before the first server start.
+
+```bash
+phux pair
+```
+
+The output looks like this:
+
+```text
+Pairing token (a secret — give it to the device once):
+  9f3c…b2
+
+Server certificate SHA-256 (verify on the device to defeat MITM):
+  AB:CD:EF:…:12
+
+Token written to /home/you/.local/state/phux/tokens
+```
+
+Give both values to the device:
+
+- **Token** — the credential. The device sends it as `Authorization: Bearer <token>` on the WebSocket upgrade.
+- **Fingerprint** — pin this on the device's first connect to close the trust-on-first-use window against a man-in-the-middle.
+
+Each `phux pair` invocation mints a new token. Revoke a device by deleting its line from the token file; revocations take effect on server restart.
+
+## Start the server on a routable address
+
+```bash
+PHUX_WS_ADDR=0.0.0.0:7878 phux server
+```
+
+The server provisions a self-signed certificate under its state directory on first run, terminates TLS at the WebSocket listener, and refuses any upgrade without a valid bearer token.
+
+The device connects with `wss://<host>:7878/…` and sends:
+
+```http
+Authorization: Bearer <token>
+```
+
+## Environment variables
+
+| Variable | Effect |
+| --- | --- |
+| `PHUX_WS_ADDR` | WebSocket bind address. Routable values engage TLS plus token auth. |
+| `PHUX_WS_SECURE=1` | Force the secure path on a loopback address. Useful for exercising the remote flow locally. |
+| `PHUX_WS_TLS_CERT` | Operator-supplied certificate PEM. Substitutes for the auto-generated self-signed cert. |
+| `PHUX_WS_TLS_KEY` | Private key PEM matching `PHUX_WS_TLS_CERT`. |
+| `PHUX_WS_TOKENS` | Override the token store path. Defaults to a file under the state directory. |
+
+Pass `--tokens <path>` or `--cert <path>` to `phux pair` to target a non-default store or certificate without exporting the variables.
+
+## Output mode for remote consumers
+
+A remote phone link is high-latency and may be lossy. Remote consumers should request `OutputMode::StateSync` at HELLO instead of the default `OutputMode::Raw`. StateSync ships the minimum VT needed to move the consumer's last-acked state to canonical per tick, coalescing floods and pacing per-consumer RTT. Raw stays the default for local interactive peers, where byte-faithful pass-through is lowest-latency on a fast link.
+
+## Trust model
+
+- **Token** — a bearer credential. Anyone holding it is the device until the token is revoked. The store is owner-only (`0o600`), comparisons are constant-time, and tokens come from the OS CSPRNG.
+- **Certificate** — self-signed by default; the device pins the SHA-256 fingerprint printed by `phux pair`. Operators can supply their own cert via `PHUX_WS_TLS_CERT` / `PHUX_WS_TLS_KEY`.
+- **Roadmap** — mutual TLS with client certificates is the v0.2 hardening; bearer tokens cover v0.1.
+
+The trust boundary widens past the OS user when this path is engaged: an authenticated network peer is a first-class consumer. The path is off by default and only engages when `PHUX_WS_ADDR` (or `PHUX_WS_SECURE=1`) selects it.

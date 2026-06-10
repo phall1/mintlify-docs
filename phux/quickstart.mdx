@@ -30,6 +30,21 @@ phux server          # start the daemon
 phux attach          # attach the TUI client
 ```
 
+## Predictive local echo
+
+`phux attach` ships with predictive local echo turned on. The client renders a best-guess preview of your next keystroke — drawn with an underline — and reconciles it against the server's authoritative output on the next frame. Shell typing, suggestion-accepting arrows, and end-of-line deletes no longer wait a full client-server round trip per keystroke; a wrong guess is overwritten by the next authoritative frame, so the worst case is a brief underlined flicker.
+
+The prediction set is the conservative Mosh-proven subset: single-grapheme inserts, end-of-line backspace, `Ctrl-U` at a known prompt boundary, `Enter`, and left/right arrows over known cells. Anything outside that set still waits for the server.
+
+To keep echo strictly authoritative, opt out in your config:
+
+```toml
+[experimental]
+predictive-echo = false
+```
+
+Anything under `[experimental]` may be renamed or removed without a SemVer bump.
+
 ## Philosophy
 
 phux aims to be [**smol**](https://smol.tauri.app/): a well-defined problem, a single maintainer, programs that compose, programs that can be finished. See `CONTRIBUTING.md` for the things we say no to.
